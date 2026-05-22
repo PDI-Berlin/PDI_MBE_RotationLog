@@ -10,6 +10,7 @@ BAUDRATE         = 38400
 SPMM             = 960411                   # steps per mm
 OFFSET_MM        = 5                        # height in mm at 0 steps
 STEP_TOLERANCE   = 3                        # minimum step change to log
+LOG_FILENAME     = "sub_Zshift.txt"         # output filename
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -66,7 +67,7 @@ try:
                 ts = f"{tmstr}:{sec:06.3f}"
                 mm = (num / SPMM) + OFFSET_MM
                 print(f"{ts},{num},{mm:.2f}")
-                write_to_log("Zshift.txt", "'Date,Z.steps,Z.height_mm",f"{ts},{num},{mm:.2f}")
+                write_to_log(LOG_FILENAME, "'Date,Z.steps,Z.height_mm",f"{ts},{num},{mm:.2f}")
                 prevnum = num
         except ValueError:
             pass

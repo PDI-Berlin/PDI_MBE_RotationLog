@@ -9,6 +9,7 @@ PORT             = 'COM13'
 BAUDRATE         = 9600
 SPR              = 1706734                  # steps per revolution
 STEP_TOLERANCE   = 3                        # minimum step change to log
+LOG_FILENAME     = "sub_Rotation.txt"       # output filename
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -66,7 +67,7 @@ try:
                 rv = (num / SPR) % 1
                 dg = 360 * rv
                 print(f"{ts},{num},{dg:.2f}")
-                write_to_log("Rotation.txt", "'Date,Rotation.steps,Rotation.deg", f"{ts},{num},{dg:.2f}")
+                write_to_log(LOG_FILENAME, "'Date,Rotation.steps,Rotation.deg", f"{ts},{num},{dg:.2f}")
                 prevnum = num
         except ValueError:
             pass
