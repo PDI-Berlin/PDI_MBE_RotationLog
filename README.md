@@ -44,8 +44,9 @@ All settings are at the top of each script:
 OUTPUT_BASE_DIR = r"c:\EPIC\Latest\Logs"
 PORT            = 'COM13'
 BAUDRATE        = 9600
-SPR             = 1706734    # steps per full revolution
-STEP_TOLERANCE  = 3          # minimum step change before logging
+SPR             = 1706734                   # steps per full revolution
+STEP_TOLERANCE  = 3                         # minimum step change before logging
+LOG_FILENAME     = "sub_Rotation.txt"       # output filename
 ```
 
 **Z script:**
@@ -53,9 +54,10 @@ STEP_TOLERANCE  = 3          # minimum step change before logging
 OUTPUT_BASE_DIR = r"c:\EPIC\Latest\Logs"
 PORT            = 'COM14'
 BAUDRATE        = 38400
-SPMM            = 960411     # steps per mm
-OFFSET_MM       = 5          # height in mm at 0 steps
-STEP_TOLERANCE  = 3          # minimum step change before logging
+SPMM            = 960411                     # steps per mm
+OFFSET_MM       = 5                          # height in mm at 0 steps
+STEP_TOLERANCE  = 3                          # minimum step change before logging
+LOG_FILENAME     = "sub_Zshift.txt"        # output filename
 ```
 
 ---
