@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.log
+.venv
+destination/
+test_rotation.py
+test_zshift.py

@@ -1,44 +1,79 @@
 import serial
 import time as tm
-import re
-# reads serial in from rotation
-# outputs angle 
+import os
+from datetime import datetime
 
-# spmm=1000000 #steps per mm old
-spmm=960411 #steps per mm
-# ofsmm=37.5 # offset mm (=mm height at 0 steps), newly calibrated
-ofsmm=5 # offset mm (=mm height at 0 steps) - adjusted to EPIC and actual scale
+# ── Configuration ─────────────────────────────────────────────────────────────
+OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   # same destination as LR script
+PORT             = 'COM14'
+BAUDRATE         = 38400
+SPMM             = 960411                   # steps per mm
+OFFSET_MM        = 5                        # height in mm at 0 steps
+STEP_TOLERANCE   = 3                        # minimum step change to log
+# ──────────────────────────────────────────────────────────────────────────────
 
-prevnum=0
-dummy=0
-steptolerance=3
+
+def write_to_log(filename, header_cols, data_line):
+    """
+    Appends one data line to a daily log file.
+    Creates the dated folder and writes the header if the file is new.
+    """
+    now = datetime.now()
+    dated_dir = os.path.join(
+        OUTPUT_BASE_DIR,
+        now.strftime("%Y"),
+        now.strftime("%Y_%m_%d")
+    )
+    os.makedirs(dated_dir, exist_ok=True)
+
+    file_path = os.path.join(dated_dir, filename)
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, 'a', encoding='utf-8') as f:
+        if not file_exists:
+            f.write(f"EPIC {filename.replace('.txt', '')} Log File\n\n")
+            f.write(f"{header_cols}\n")
+        f.write(data_line + "\n")
+
+
+# reads serial in from Z shift
+# outputs height in mm
+prevnum = 0
+
 ser = serial.Serial(
-    port='COM14',
-    baudrate=38400,
+    port=PORT,
+    baudrate=BAUDRATE,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
-    bytesize=serial.EIGHTBITS
+    bytesize=serial.EIGHTBITS,
+    timeout=1
 )
-print("'EPIC Z shift- Log File")
+print("'EPIC Zshift Log File")
 print("")
 print("'Date,Z.steps,Z.height_mm")
 
-while(True):
-    data=ser.readline() # is a bytes object
-    ds=data.decode() #ds is a string object
-    try:
-      num=int(ds)
-#      if abs(num)>spr/360 and abs(num-prevnum)>2 and num!=5000: # 5000 is read upon epic start
-      if abs(num-prevnum)>steptolerance:
-        st=tm.localtime()
-        curr=tm.time()
-        sec=st.tm_sec+ (curr % 1)
-        tmstr=tm.strftime("%d/%m/%Y %H:%M",st)
-        mm=(num/spmm)+ofsmm
-        print(f"{tmstr}:{sec:06.3f},{num},{mm:.2f}")
-        #print(tmstr+":%06.3f" % sec,num,"%.2f" % mm)
-        prevnum=num # buffer last written value
+try:
+    while True:
+        data = ser.readline()
+        ds = data.decode()
+        try:
+            num = int(ds)
+            if abs(num - prevnum) > STEP_TOLERANCE:
+                st = tm.localtime()
+                curr = tm.time()
+                sec = st.tm_sec + (curr % 1)
+                tmstr = tm.strftime("%d/%m/%Y %H:%M", st)
+                ts = f"{tmstr}:{sec:06.3f}"
+                mm = (num / SPMM) + OFFSET_MM
+                print(f"{ts},{num},{mm:.2f}")
+                write_to_log("Zshift.txt", "'Date,Z.steps,Z.height_mm",f"{ts},{num},{mm:.2f}")
+                prevnum = num
+        except ValueError:
+            pass
+        except Exception as e:
+            print(f"Warning: {e}")
 
-    except:
-      dummy=1
-ser.close()
+except KeyboardInterrupt:
+    print("\nStopping.")
+finally:
+    ser.close()
