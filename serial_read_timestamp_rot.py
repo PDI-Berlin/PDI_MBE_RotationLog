@@ -1,7 +1,35 @@
 import serial
 import time as tm
 import os
+import sys
 from datetime import datetime
+
+# ── SINGLE INSTANCE LOCK ──────────────────────────────────────────────────────
+# Creates a lockfile named after the script itself (e.g., rotation_lock.lock)
+LOCK_FILE = f"{os.path.basename(__file__)}.lock"
+
+try:
+    # Open the file in write mode
+    lock_fd = open(LOCK_FILE, 'ab+')
+    if os.name == 'nt':  
+        import msvcrt
+        try:
+            msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
+        except IOError:
+            print(f"\n⚠️ WARNING: This script is already running in another terminal!")
+            print("Please close the other instance before running this one.")
+            sys.exit(1)
+    else:  
+        import fcntl
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError:
+            print(f"\n⚠️ WARNING: This script is already running in another terminal!")
+            sys.exit(1)
+except Exception as e:
+    print(f"Lockfile initialization failed: {e}")
+    sys.exit(1)
+# ──────────────────────────────────────────────────────────────────────────────
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   # same destination as LR script
