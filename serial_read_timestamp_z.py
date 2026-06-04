@@ -5,15 +5,14 @@ import sys
 from datetime import datetime
 
 # ── SINGLE INSTANCE LOCK ──────────────────────────────────────────────────────
-# Creates a lockfile named after the script itself
 LOCK_FILE = f"{os.path.basename(__file__)}.lock"
 
 try:
-    # Open the file in write mode
     lock_fd = open(LOCK_FILE, 'ab+')
     if os.name == 'nt':  
         import msvcrt
         try:
+            lock_fd.seek(0)
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
         except IOError:
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
@@ -32,13 +31,15 @@ except Exception as e:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   # same destination as LR script
+OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   
 PORT             = 'COM14'
 BAUDRATE         = 38400
 SPMM             = 960411                   # steps per mm
 OFFSET_MM        = 5                        # height in mm at 0 steps
 STEP_TOLERANCE   = 3                        # minimum step change to log
-LOG_FILENAME     = "sub_Zshift.txt"         # output filename
+# LOG FILENAMES
+LOG_STEPS_FILE   = "Sub.ZShift.Steps.txt"
+LOG_HEIGHT_FILE  = "Sub.ZShift.Height.txt"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -64,9 +65,6 @@ def write_to_log(filename, header_cols, data_line):
             f.write(f"{header_cols}\n")
         f.write(data_line + "\n")
 
-
-# reads serial in from Z shift
-# outputs height in mm
 prevnum = 0
 
 ser = serial.Serial(
@@ -77,6 +75,7 @@ ser = serial.Serial(
     bytesize=serial.EIGHTBITS,
     timeout=1
 )
+
 print("'EPIC Zshift Log File")
 print("")
 print("'Date,Z.steps,Z.height_mm")
@@ -84,7 +83,7 @@ print("'Date,Z.steps,Z.height_mm")
 try:
     while True:
         data = ser.readline()
-        ds = data.decode()
+        ds = data.decode(encoding='utf-8', errors='ignore').strip()
         try:
             num = int(ds)
             if abs(num - prevnum) > STEP_TOLERANCE:
@@ -93,9 +92,16 @@ try:
                 sec = st.tm_sec + (curr % 1)
                 tmstr = tm.strftime("%d/%m/%Y %H:%M", st)
                 ts = f"{tmstr}:{sec:06.3f}"
+                
                 mm = (num / SPMM) + OFFSET_MM
+                
+                # Print to terminal 
                 print(f"{ts},{num},{mm:.2f}")
-                write_to_log(LOG_FILENAME, "'Date,Z.steps,Z.height_mm",f"{ts},{num},{mm:.2f}")
+                
+                # Write to two separate log targets simultaneously ──
+                write_to_log(LOG_STEPS_FILE, "'Date,Z.steps", f"{ts},{num}")
+                write_to_log(LOG_HEIGHT_FILE, "'Date,Z.height_mm", f"{ts},{mm:.2f}")
+                
                 prevnum = num
         except ValueError:
             pass

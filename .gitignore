@@ -5,3 +5,4 @@ __pycache__/
 destination/
 test_rotation.py
 test_zshift.py
+test_rotation.py.lock

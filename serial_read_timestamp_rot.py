@@ -5,15 +5,14 @@ import sys
 from datetime import datetime
 
 # ── SINGLE INSTANCE LOCK ──────────────────────────────────────────────────────
-# Creates a lockfile named after the script itself (e.g., rotation_lock.lock)
 LOCK_FILE = f"{os.path.basename(__file__)}.lock"
 
 try:
-    # Open the file in write mode
     lock_fd = open(LOCK_FILE, 'ab+')
     if os.name == 'nt':  
         import msvcrt
         try:
+            lock_fd.seek(0)
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
         except IOError:
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
@@ -32,12 +31,14 @@ except Exception as e:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   # same destination as LR script
+OUTPUT_BASE_DIR  = r"c:\EPIC\Latest\Logs"   
 PORT             = 'COM13'
 BAUDRATE         = 9600
 SPR              = 1706734                  # steps per revolution
 STEP_TOLERANCE   = 3                        # minimum step change to log
-LOG_FILENAME     = "sub_Rotation.txt"       # output filename
+# LOG FILENAMES
+LOG_STEPS_FILE   = "Sub.Rot.Steps.txt"
+LOG_ANGLE_FILE   = "Sub.Rot.Angle.txt"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -64,8 +65,6 @@ def write_to_log(filename, header_cols, data_line):
         f.write(data_line + "\n")
 
 
-# reads serial in from rotation
-# outputs angle
 prevnum = 0
 
 ser = serial.Serial(
@@ -83,7 +82,7 @@ print("'Date,Rotation.steps,Rotation.deg")
 try:
     while True:
         data = ser.readline()
-        ds = data.decode()
+        ds = data.decode(encoding='utf-8', errors='ignore').strip()
         try:
             num = int(ds)
             if abs(num) > SPR/360 and abs(num - prevnum) > STEP_TOLERANCE:
@@ -91,16 +90,32 @@ try:
                 curr = tm.time()
                 sec = st.tm_sec + (curr % 1)
                 tmstr = tm.strftime("%d/%m/%Y %H:%M", st)
-                ts = f"{tmstr}:{sec:06.3f}"
+                ts = f"{tmstr}:{sec:06.3f}"                
                 rv = (num / SPR) % 1
                 dg = 360 * rv
+                
+                # Print to terminal 
                 print(f"{ts},{num},{dg:.2f}")
-                write_to_log(LOG_FILENAME, "'Date,Rotation.steps,Rotation.deg", f"{ts},{num},{dg:.2f}")
+                
+                # ── FIXED: Write to two separate log targets simultaneously ──
+                write_to_log(LOG_STEPS_FILE, "'Date,Rotation.steps", f"{ts},{num}")
+                write_to_log(LOG_ANGLE_FILE, "'Date,Rotation.deg", f"{ts},{dg:.2f}")
+                
                 prevnum = num
         except ValueError:
             pass
         except Exception as e:
             print(f"Warning: {e}")
+        finally:
+            ser.close()
+            try:
+                if os.name == 'nt':
+                    lock_fd.seek(0)
+                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
+                lock_fd.close()
+                os.remove(LOCK_FILE)
+            except Exception:
+                pass
 
 except KeyboardInterrupt:
     print("\nStopping.")
