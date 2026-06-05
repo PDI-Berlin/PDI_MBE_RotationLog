@@ -112,16 +112,11 @@ try:
 except KeyboardInterrupt:
     print("\nStopping.")
 finally:
-    # 1. Clear the hardware line first
     ser.close()    
-    
-    # 2. Closing the file descriptor instantly forces Windows to drop the lock safely
     try:
         lock_fd.close()
     except Exception:
         pass
-        
-    # 3. Clear the file from the disk
     try:
         os.remove(LOCK_FILE)
     except Exception:
