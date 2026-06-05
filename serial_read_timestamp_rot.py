@@ -8,21 +8,22 @@ from datetime import datetime
 LOCK_FILE = f"{os.path.basename(__file__)}.lock"
 
 try:
-    lock_fd = open(LOCK_FILE, 'ab+')
-    if os.name == 'nt':  
+    lock_fd = open(LOCK_FILE, 'ab')
+    if os.name == 'nt':
         import msvcrt
         try:
-            lock_fd.seek(0)
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
         except IOError:
+            lock_fd.close()
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
             print("Please close the other instance before running this one.")
             sys.exit(1)
-    else:  
+    else:
         import fcntl
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except IOError:
+            lock_fd.close()
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
             sys.exit(1)
 except Exception as e:
@@ -36,6 +37,7 @@ PORT             = 'COM13'
 BAUDRATE         = 9600
 SPR              = 1706734                  # steps per revolution
 STEP_TOLERANCE   = 3                        # minimum step change to log
+
 # LOG FILENAMES
 LOG_STEPS_FILE   = "Sub.Rot.Steps.txt"
 LOG_ANGLE_FILE   = "Sub.Rot.Angle.txt"
@@ -97,7 +99,7 @@ try:
                 # Print to terminal 
                 print(f"{ts},{num},{dg:.2f}")
                 
-                # ── FIXED: Write to two separate log targets simultaneously ──
+                # Write to two separate log targets simultaneously
                 write_to_log(LOG_STEPS_FILE, "'Date,Rotation.steps", f"{ts},{num}")
                 write_to_log(LOG_ANGLE_FILE, "'Date,Rotation.deg", f"{ts},{dg:.2f}")
                 
@@ -106,18 +108,21 @@ try:
             pass
         except Exception as e:
             print(f"Warning: {e}")
-        finally:
-            ser.close()
-            try:
-                if os.name == 'nt':
-                    lock_fd.seek(0)
-                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
-                lock_fd.close()
-                os.remove(LOCK_FILE)
-            except Exception:
-                pass
 
 except KeyboardInterrupt:
     print("\nStopping.")
 finally:
-    ser.close()
+    # 1. Clear the hardware line first
+    ser.close()    
+    
+    # 2. Closing the file descriptor instantly forces Windows to drop the lock safely
+    try:
+        lock_fd.close()
+    except Exception:
+        pass
+        
+    # 3. Clear the file from the disk
+    try:
+        os.remove(LOCK_FILE)
+    except Exception:
+        pass
