@@ -8,21 +8,22 @@ from datetime import datetime
 LOCK_FILE = f"{os.path.basename(__file__)}.lock"
 
 try:
-    lock_fd = open(LOCK_FILE, 'ab+')
-    if os.name == 'nt':  
+    lock_fd = open(LOCK_FILE, 'ab')
+    if os.name == 'nt':
         import msvcrt
         try:
-            lock_fd.seek(0)
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
         except IOError:
+            lock_fd.close()
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
             print("Please close the other instance before running this one.")
             sys.exit(1)
-    else:  
+    else:
         import fcntl
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except IOError:
+            lock_fd.close()
             print(f"\n⚠️ WARNING: This script is already running in another terminal!")
             sys.exit(1)
 except Exception as e:
@@ -112,3 +113,11 @@ except KeyboardInterrupt:
     print("\nStopping.")
 finally:
     ser.close()
+    try:
+        lock_fd.close()       # Implicitly releases the Windows lock cleanly
+    except Exception:
+        pass
+    try:
+        os.remove(LOCK_FILE)  # Cleans the folder track instantly
+    except Exception:
+        pass
