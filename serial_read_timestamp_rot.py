@@ -68,6 +68,7 @@ def write_to_log(filename, header_cols, data_line):
 
 
 prevnum = 0
+prevh=-1
 
 ser = serial.Serial(
     port=PORT,
@@ -83,13 +84,16 @@ print("'Date,Rotation.steps,Rotation.deg")
 
 try:
     while True:
-        data = ser.readline()
+        data = ser.readline()	# read data from serial port (cr/lf terminated string)
+        st = tm.localtime()	# get timestamp
+        curr = tm.time()	# get timestamp
+        h=st.tm_hour
+
         ds = data.decode(encoding='utf-8', errors='ignore').strip()
+
         try:
             num = int(ds)
-            if abs(num) > SPR/360 and abs(num - prevnum) > STEP_TOLERANCE:
-                st = tm.localtime()
-                curr = tm.time()
+            if (abs(num) > SPR/360 and abs(num - prevnum) > STEP_TOLERANCE) or (h!=prevh):
                 sec = st.tm_sec + (curr % 1)
                 tmstr = tm.strftime("%d/%m/%Y %H:%M", st)
                 ts = f"{tmstr}:{sec:06.3f}"                
@@ -104,6 +108,7 @@ try:
                 write_to_log(LOG_ANGLE_FILE, "'Date,Rotation.deg", f"{ts},{dg:.2f}")
                 
                 prevnum = num
+                prevh=h
         except ValueError:
             pass
         except Exception as e:

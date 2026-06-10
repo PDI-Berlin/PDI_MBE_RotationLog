@@ -67,6 +67,8 @@ def write_to_log(filename, header_cols, data_line):
         f.write(data_line + "\n")
 
 prevnum = 0
+prevh=-1
+
 
 ser = serial.Serial(
     port=PORT,
@@ -84,12 +86,15 @@ print("'Date,Z.steps,Z.height_mm")
 try:
     while True:
         data = ser.readline()
+        st = tm.localtime()
+        curr = tm.time()
+        h=st.tm_hour
+
         ds = data.decode(encoding='utf-8', errors='ignore').strip()
         try:
             num = int(ds)
-            if abs(num - prevnum) > STEP_TOLERANCE:
-                st = tm.localtime()
-                curr = tm.time()
+
+            if (abs(num - prevnum) > STEP_TOLERANCE) or (h!=prevh):
                 sec = st.tm_sec + (curr % 1)
                 tmstr = tm.strftime("%d/%m/%Y %H:%M", st)
                 ts = f"{tmstr}:{sec:06.3f}"
@@ -102,7 +107,8 @@ try:
                 # Write to two separate log targets simultaneously ──
                 write_to_log(LOG_STEPS_FILE, "'Date,Z.steps", f"{ts},{num}")
                 write_to_log(LOG_HEIGHT_FILE, "'Date,Z.height_mm", f"{ts},{mm:.2f}")
-                
+
+                prevh=h
                 prevnum = num
         except ValueError:
             pass
